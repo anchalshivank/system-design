@@ -1,194 +1,83 @@
-### **Generalized System Design Questions with Case Scenarios**
+### **System Design Cheat Sheet**
 
-#### **1. Scalability**
-- **Question**: How do you scale a system to handle a sudden spike in traffic, and what trade-offs do you consider?
-- **Case Scenario**: Imagine your stock system sees a market crash—10M users (not 1M) send buy requests for stock #54 in 1 minute. How do you scale the Buying Service and Redis to handle 10M requests (e.g., 166k/second)? What happens if you add too many instances too fast?
-- **Hint**: Think Load Balancer, consistent hashing, sharding, and resource limits.
-
-#### **2. Consistency**
-- **Question**: How do you ensure data consistency across multiple service instances in a distributed system?
-- **Case Scenario**: In the stock system, instance 4.1 matches a buy (100.5) and sell (101.0) for stock #54, but instance 4.2 misses the Kafka update due to network lag. A new bid (100.5) arrives at 4.2—how do you prevent it from routing incorrectly (e.g., to PostgreSQL instead of matching)? What if Kafka is down for 5 seconds?
-- **Hint**: Locks, offsets, eventual consistency, fallback checks.
-
-#### **3. Low Latency**
-- **Question**: How do you minimize latency in a real-time system while maintaining accuracy?
-- **Case Scenario**: Traders in your stock system demand sub-second updates for stock #54 prices. With 1M users, Kafka updates take 50ms to reach instances 4.1-4.3, and Redis `MULTI` takes 1ms. How do you ensure bids match in <100ms? What if a trader complains about a 200ms delay?
-- **Hint**: Caching, in-memory checks, reducing network hops.
-
-#### **4. Fault Tolerance**
-- **Question**: How do you design a system to stay operational when a key component fails?
-- **Case Scenario**: Redis 4 (holding stock #54 orders) crashes during a peak of 1M requests. You have a read replica (Redis 4R). How do you switch over without losing trades? What if the Load Balancer fails instead—how do you keep requests flowing?
-- **Hint**: Replicas, failover, redundancy, health checks.
-
-#### **5. Data Partitioning**
-- **Question**: How do you partition data across nodes to balance load and ensure fast access?
-- **Case Scenario**: Stock #54 gets 90% of 1M requests, while other stocks (501-1000) on instance 4 get 10%. Consistent hashing puts all #54 traffic on instance 4, overwhelming it. How do you re-partition (e.g., Redis, Kafka) to spread the load? What if a new hot stock (#55) emerges later?
-- **Hint**: Sharding, virtual nodes, dynamic rebalancing.
-
-#### **6. Caching Strategy**
-- **Question**: How do you use caching to improve performance, and when do you invalidate it?
-- **Case Scenario**: Instance 4 caches `lowest_buy` (100.0) and `highest_sell` (101.0) for stock #54 in-memory. A burst of 1M requests shifts prices to 99.0-102.0, but Kafka lags 1s. How do you keep the cache fresh? What if you cache all 5000 stocks’ ranges—memory issues?
-- **Hint**: TTL, write-through, refresh triggers.
-
-#### **7. Handling Backpressure**
-- **Question**: How do you manage a system when downstream components can’t keep up with incoming requests?
-- **Case Scenario**: PostgreSQL (storing out-of-range bids for stock #54) slows to 1k inserts/second during 1M requests, while Redis handles 10k/second. Bids like 96.5 pile up—how do you avoid crashing? What if Kafka chokes at 20k updates/second?
-- **Hint**: Rate limiting, buffering, async processing.
-
-#### **8. Real-Time Updates**
-- **Question**: How do you deliver real-time updates to millions of clients efficiently?
-- **Case Scenario**: 1M users watching stock #54’s price need updates every match (10k/second). Kafka pushes to instances, but how do you get prices to users’ apps in <1s? What if 10% disconnect and reconnect simultaneously?
-- **Hint**: WebSocket, SSE, fan-out, reconnection handling.
-
-#### **9. Trade-Offs in Storage**
-- **Question**: How do you choose between different storage systems for a workload, and what are the trade-offs?
-- **Case Scenario**: Stock #54’s 1M requests generate 10k trades/second. You use Redis for orders, PostgreSQL for trades, and InfluxDB for price history. What if trades need ACID guarantees but PostgreSQL slows down? Swap with Cassandra?
-- **Hint**: Consistency vs. speed, throughput vs. latency.
-
-#### **10. Monitoring and Debugging**
-- **Question**: How do you monitor a system to catch issues early and debug failures?
-- **Case Scenario**: During 1M requests for stock #54, some users see “trade failed” errors. Latency spikes to 500ms, and Kafka lag hits 2s. How do you spot this? If instance 4.2 crashes, how do you figure out why?
-- **Hint**: Metrics, logs, alerts, distributed tracing.
-
-
-### Classification of System Design Questions
-#### 1. Data Storage and Retrieval Systems
-- **Core Theme**: Store, retrieve, and manage data (structured or unstructured) with persistence and scalability.
-- **Questions**:
-  - **Design URL Shortener like TinyURL**: Key-value mapping, high read/write throughput.
-  - **Design Text Storage Service like Pastebin**: Text blobs, expiration, read/write access.
-  - **Design Distributed Key-Value Store**: Scalable KV storage (e.g., DynamoDB).
-  - **Design Distributed Cache**: In-memory caching (e.g., Redis, Memcached).
-  - **Design File Sharing System like Dropbox**: File storage, sync, versioning.
-  - **Design Distributed Cloud Storage like S3**: Object storage, durability, global access.
-- **Key Concepts**: Sharding, replication, consistency (eventual vs. strong), caching, storage tiers (S3, EBS).
-- **Why Similar**: Focus on data CRUD operations, persistence, and scaling reads/writes.
-
-#### 2. Real-Time Data Processing Systems
-- **Core Theme**: Handle streams or queues of events with low latency and high throughput.
-- **Questions**:
-  - **Design Distributed Message Queue like Kafka**: Pub-sub, partitioning, durability.
-  - **Design Distributed Job Scheduler**: Task queuing, scheduling, execution.
-  - **Design a Scalable Notification Service**: Push events to users/devices.
-  - **Design Distributed Web Crawler**: Parallel task processing, data ingestion.
-  - **Design Stock Exchange System**: Real-time order matching, event-driven.
-- **Key Concepts**: Pub-sub, partitioning, consumer groups, backpressure, fault tolerance.
-- **Why Similar**: Process data in real-time, often with Kafka-like systems—your stock broker fits here!
-
-#### 3. Content Delivery and Streaming Systems
-- **Core Theme**: Distribute and stream content globally with low latency.
-- **Questions**:
-  - **Design Content Delivery Network (CDN)**: Cache static content, edge delivery.
-  - **Design Netflix**: Video streaming, CDN, recommendations.
-  - **Design Youtube**: Video upload, streaming, transcoding.
-  - **Design Spotify**: Audio streaming, playlists, caching.
-  - **Design TikTok**: Short video streaming, feed generation.
-- **Key Concepts**: CDN (e.g., Akamai), caching (LFU/LRU), encoding, geo-distribution.
-- **Why Similar**: Focus on delivering large media, optimizing latency—your Netflix design aligns!
-
-#### 4. Social Media and Feed-Based Systems
-- **Core Theme**: User-generated content, feeds, and social interactions.
-- **Questions**:
-  - **Design WhatsApp**: Messaging, chat history, real-time delivery.
-  - **Design Instagram**: Photos, feeds, likes, follows.
-  - **Design Tinder**: Profiles, swipes, matching.
-  - **Design Facebook**: Newsfeed, posts, friends.
-  - **Design Twitter**: Tweets, timelines, followers.
-  - **Design Reddit**: Posts, comments, upvotes.
-  - **Design Slack**: Channels, messages, real-time collab.
-  - **Design Live Comments**: Real-time comment streams.
-- **Key Concepts**: Feed generation (fan-out/fan-in), sharding by user, real-time updates (WebSockets).
-- **Why Similar**: User-driven content, social graphs, scalable reads/writes.
-
-#### 5. E-Commerce and Transactional Systems
-- **Core Theme**: Manage inventory, payments, and bookings with strong consistency.
-- **Questions**:
-  - **Design E-commerce Store like Amazon**: Catalog, cart, checkout.
-  - **Design Shopify**: Storefronts, payments, inventory.
-  - **Design Airbnb**: Listings, bookings, reviews.
-  - **Design Flight Booking System**: Seats, reservations, pricing.
-  - **Design Ticket Booking System like BookMyShow**: Tickets, availability.
-  - **Design Payment System**: Transactions, fraud detection.
-  - **Design a Digital Wallet**: Balance, transfers, security.
-  - **Design Unified Payments Interface (UPI)**: Real-time payments, bank integration.
-- **Key Concepts**: ACID transactions, distributed locking, inventory management.
-- **Why Similar**: Handle money or resources—consistency is king.
-
-#### 6. Search and Recommendation Systems
-- **Core Theme**: Index, search, and personalize content at scale.
-- **Questions**:
-  - **Design Google Search**: Crawling, indexing, ranking.
-  - **Design Autocomplete for Search Engines**: Trie/prefix search, caching.
-  - **Design Leaderboard**: Ranked lists, real-time updates.
-  - **Design an Analytics Platform (Metrics & Logging)**: Aggregations, time-series.
-- **Key Concepts**: Inverted indexes (ElasticSearch), caching, ML for personalization.
-- **Why Similar**: Query optimization, ranking—your Netflix recommendations overlap!
-
-#### 7. Location-Based and Mobility Systems
-- **Core Theme**: Geo-spatial data, routing, and real-time tracking.
-- **Questions**:
-  - **Design Location Based Service like Yelp**: Reviews, nearby search.
-  - **Design Uber**: Rides, driver matching, ETA.
-  - **Design Food Delivery App like Doordash**: Orders, delivery tracking.
-  - **Design Google Maps**: Directions, geolocation, traffic.
-- **Key Concepts**: Geo-sharding, quad-trees, real-time location updates.
-- **Why Similar**: Spatial queries, proximity—location drives design.
-
-#### 8. Collaborative and Productivity Systems
-- **Core Theme**: Real-time collaboration, editing, or deployment.
-- **Questions**:
-  - **Design Google Docs**: Docs, real-time edits, versioning.
-  - **Design Zoom**: Video calls, streaming, latency.
-  - **Design Online Code Editor**: Code execution, collaboration.
-  - **Design Code Deployment System**: CI/CD, rollouts, staging.
-- **Key Concepts**: CRDTs/OT (conflict resolution), WebRTC, orchestration.
-- **Why Similar**: Sync users or processes in real-time.
-
-#### 9. Distributed Systems Primitives
-- **Core Theme**: Building blocks for distributed architectures.
-- **Questions**:
-  - **Design Distributed Counter**: Consistent counting across nodes.
-  - **Design Distributed Locking Service**: Mutual exclusion, leases.
-  - **Design Rate Limiter**: Throttling, token buckets.
-- **Key Concepts**: Consensus (Paxos/Raft), atomicity, scalability.
-- **Why Similar**: Low-level tools—underpin other systems.
-
-#### 10. Physical Systems (OOD + System Design Hybrid)
-- **Core Theme**: Model real-world objects with software-like constraints.
-- **Questions**:
-  - **Design Parking Garage**: Slots, allocation, tracking.
-  - **Design Vending Machine**: Inventory, payments, dispensing.
-- **Key Concepts**: State machines, resource allocation, concurrency.
-- **Why Similar**: Blend object-oriented design with system constraints.
+| **Topic**                          | **What It Is**                                                                   | **What to Use?**                                                                 | **Why?**                                                                                   | **How to Achieve**                                                                                   |
+|------------------------------------|----------------------------------------------------------------------------------|----------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
+| **Protocols**                      | Rules defining how data is exchanged between systems.                            |                                                                                  |                                                                                           |                                                                                                     |
+| HTTP/HTTPS                         | Protocol for web communication, HTTPS adds encryption.                           | REST APIs, Web Services                                                          | Standard, stateless, widely supported.                                                    | Use libraries like `axios` (Node.js) or frameworks like Flask/Django; secure with TLS (e.g., OpenSSL). |
+| HTTP/2                             | Enhanced HTTP with performance improvements.                                     | High-performance APIs                                                            | Multiplexing, header compression, reduced latency.                                        | Deploy with modern web servers (e.g., Nginx, Apache) supporting HTTP/2.                              |
+| gRPC                               | High-performance RPC protocol using HTTP/2 and Protocol Buffers.                 | Microservices, RPC                                                               | Fast, binary, supports streaming, multilingual.                                           | Use gRPC libraries (e.g., gRPC-Go, gRPC-Java) with Protocol Buffers for schema definition.            |
+| WebSockets                         | Persistent, full-duplex communication over a single connection.                  | Real-time apps (e.g., chat, live updates)                                        | Low-latency, bidirectional communication.                                                 | Implement with libraries like `Socket.IO` (Node.js) or `ws` (WebSocket server).                      |
+| MQTT                               | Lightweight pub/sub protocol for small devices.                                  | IoT, real-time messaging                                                         | Efficient for low-bandwidth/unreliable networks.                                          | Use MQTT brokers (e.g., Mosquitto) and clients (e.g., Paho MQTT).                                    |
+| AMQP                               | Protocol for reliable message queuing and routing.                               | Reliable messaging (e.g., RabbitMQ)                                              | Guaranteed delivery, complex routing.                                                     | Deploy with RabbitMQ or ActiveMQ; configure queues/exchanges via AMQP clients.                       |
+| Kafka Protocol                     | Distributed streaming protocol for event logs.                                   | High-throughput event streaming                                                  | Scalable, durable, fault-tolerant data pipelines.                                         | Use Apache Kafka with producers/consumers (e.g., Kafka-Python, Kafka-Java).                          |
+| GraphQL                            | Query language protocol for flexible API data fetching.                          | Flexible APIs (e.g., GitHub API)                                                 | Reduces over/under-fetching, client-driven.                                               | Implement with Apollo Server (Node.js) or Graphene (Python); define schemas for queries.             |
+| **Server Software/Services**       | Software or services running on servers to handle specific tasks.                |                                                                                  |                                                                                           |                                                                                                     |
+| SMTP (via Mail Servers)            | Protocol for email, implemented by mail server software.                         | Postfix, Sendmail (for Gmail, Outlook integration)                               | Standard for email delivery.                                                              | Configure mail servers with SMTP settings; use libraries like `nodemailer` for programmatic sending. |
+| FTP/SFTP (via File Servers)        | Protocols for file transfer, SFTP adds security; implemented by file servers.    | FileZilla Server, OpenSSH (SFTP)                                                 | FTP for basic transfers, SFTP for secure transfers.                                       | Set up FTP/SFTP servers (e.g., vsftpd, OpenSSH); use clients like `scp` or FileZilla.                 |
+| RTMP (via Streaming Servers)       | Protocol for real-time video, used by streaming servers.                         | Nginx-RTMP, Wowza                                                                | Low-latency video streaming (e.g., Twitch).                                               | Configure Nginx with RTMP module or use Wowza; stream with tools like OBS.                           |
+| SNS                                | Managed service for push notifications, not a protocol.                          | AWS SNS                                                                          | Scalable, multi-platform (SMS, iOS, Android).                                             | Integrate via AWS SDK (e.g., boto3 in Python); configure topics/subscribers.                         |
+| NFS                                | Network file system for shared storage, implemented by servers.                  | NFS Server (Linux)                                                               | Enables shared file access across servers.                                                | Set up NFS on Linux (e.g., `nfs-kernel-server`); mount on clients with `mount -t nfs`.               |
+| **Databases**                      | Systems for storing and retrieving data.                                         |                                                                                  |                                                                                           |                                                                                                     |
+| Relational (SQL)                   | Structured data with tables and schemas.                                         | PostgreSQL, MySQL                                                                | ACID compliance, strong consistency (e.g., banking).                                      | Use ORMs (e.g., SQLAlchemy, Hibernate) or raw SQL; deploy on RDS or local servers.                   |
+| NoSQL (Key-Value)                  | Simple key-value pair storage.                                                   | Redis, DynamoDB                                                                  | Fast lookups, caching, session storage.                                                   | Deploy Redis locally or use AWS DynamoDB; access via clients (e.g., `redis-py`).                     |
+| NoSQL (Document)                   | Semi-structured data in JSON-like documents.                                    | MongoDB, CouchDB                                                                 | Flexible schema, hierarchical data (e.g., CMS).                                           | Use MongoDB Atlas or local instance; query with drivers (e.g., PyMongo).                             |
+| NoSQL (Columnar)                   | Wide-column storage for analytics.                                               | Apache Cassandra, Bigtable                                                       | Large-scale analytics, time-series (e.g., recommendations).                               | Deploy Cassandra cluster; use CQL (Cassandra Query Language) via drivers.                            |
+| NoSQL (Graph)                      | Node-edge structure for relationships.                                           | Neo4j, ArangoDB                                                                  | Complex relationships (e.g., social networks).                                            | Run Neo4j locally or on cloud; query with Cypher (Neo4j) or AQL (ArangoDB).                          |
+| Time-Series                        | Specialized DB for time-stamped data.                                            | InfluxDB, TimescaleDB                                                            | Optimized for IoT, monitoring data.                                                       | Deploy InfluxDB or extend PostgreSQL with TimescaleDB; use client libraries (e.g., InfluxDB-Python).  |
+| **Caching**                        | Temporary storage for fast data access.                                          |                                                                                  |                                                                                           |                                                                                                     |
+| Cache-aside                        | App manages cache, fetches from DB if miss.                                      | Redis, Memcached                                                                 | Reduces DB load, general-purpose caching.                                                 | Implement with Redis client (e.g., `redis-py`); app logic checks cache, updates on miss.             |
+| Write-through                      | Writes go to cache and DB simultaneously.                                        | Redis                                                                            | Ensures cache-DB sync (read-heavy workloads).                                             | Use Redis with write-through logic in app (e.g., update cache and DB in one transaction).            |
+| Write-behind                       | Writes to cache first, DB synced later.                                          | Redis                                                                            | Reduces DB write load (high-write, eventual consistency).                                 | Configure Redis with async DB sync (e.g., background job with Celery or Kafka).                      |
+| Read-through                       | Cache fetches from DB automatically on miss.                                     | CDN, API Gateway                                                                 | Simplifies app logic (e.g., CDN caching).                                                 | Use AWS API Gateway caching or CDN (e.g., Cloudflare) with auto-fetch setup.                         |
+| Distributed Cache                  | Cache spread across multiple nodes.                                              | Hazelcast, Redis Cluster                                                         | Scales caching for high availability/performance.                                         | Deploy Redis Cluster or Hazelcast; configure with consistent hashing.                                |
+| Eviction Strategy                  | Rules for removing old cache data.                                               | LRU, LFU, TTL                                                                    | LRU for recent use, LFU for frequency, TTL for time.                                      | Set in Redis (e.g., `CONFIG SET maxmemory-policy allkeys-lru`) or Memcached config.                  |
+| **Scaling**                        | Increasing system capacity.                                                      |                                                                                  |                                                                                           |                                                                                                     |
+| Horizontal Scaling                 | Add more machines to distribute load.                                            | Microservices, Sharding                                                          | Scales out (e.g., Instagram, Twitter).                                                    | Use Kubernetes for microservices; shard DB with tools like Vitess.                                   |
+| Vertical Scaling                   | Upgrade single machine (CPU, RAM, etc.).                                         | Single powerful machine                                                          | Simplifies scaling for compute/memory/I/O (e.g., legacy apps).                            | Upgrade hardware or cloud instance (e.g., AWS EC2 t3.large → t3.xlarge).                             |
+| Load Balancing                     | Distribute traffic across servers.                                               | Nginx, HAProxy                                                                   | Ensures reliability and performance.                                                      | Configure Nginx/HAProxy with round-robin or least-connection algorithms.                             |
+| Database Sharding                  | Split DB across multiple servers.                                                | Vitess (MySQL), Citus (PostgreSQL)                                               | Handles write-heavy systems.                                                              | Use Vitess for MySQL sharding or Citus for PostgreSQL; define shard keys.                            |
+| **Messaging & Queues**             | Systems for asynchronous communication.                                          |                                                                                  |                                                                                           |                                                                                                     |
+| Message Queue                      | Buffer for tasks/messages between systems.                                       | Kafka, RabbitMQ                                                                  | Kafka for streaming/durability; RabbitMQ for queuing.                                     | Deploy Kafka cluster or RabbitMQ; use clients (e.g., `confluent-kafka`, `pika`).                     |
+| Event-Driven Architecture          | Systems react to events in real-time.                                            | Kafka, AWS Lambda                                                                | Real-time processing (e.g., Uber tracking).                                               | Set up Kafka topics or Lambda triggers; process events with consumers.                               |
+| Pub/Sub                            | Publishers send to subscribers via topics.                                       | Google Pub/Sub, Redis Pub/Sub                                                    | Decouples systems for scalable events.                                                    | Use Google Pub/Sub API or Redis `PUBLISH`/`SUBSCRIBE` commands.                                      |
+| **Global Coordination**            | Managing distributed system state.                                               |                                                                                  |                                                                                           |                                                                                                     |
+| Consensus Algorithm                | Agreement on state across nodes.                                                 | Paxos, Raft                                                                      | Leader election, state machines (e.g., Spanner).                                          | Use Raft in etcd or Consul; implement Paxos in custom systems.                                       |
+| Distributed Locking                | Ensures exclusive access in distributed systems.                                 | Zookeeper, Redis                                                                 | Prevents conflicts (e.g., Redis locks).                                                  | Use Zookeeper’s locks or Redis `SETNX` for atomic locking.                                           |
+| CAP Theorem                        | Tradeoff framework: Consistency, Availability, Partition Tolerance.              | Understand tradeoffs                                                             | Guides design (e.g., CP for banking, AP for social).                                      | Analyze with tools like Jepsen for testing distributed system behavior.                              |
+| **Other Techniques**               | Miscellaneous system design tools.                                               |                                                                                  |                                                                                           |                                                                                                     |
+| Consistent Hashing                 | Distributes data with minimal reshuffling.                                       | Redis Cluster, DynamoDB                                                          | Minimizes movement (e.g., CDNs, caching).                                                 | Implement with hash rings in Redis Cluster or DynamoDB partitioning.                                 |
+| Rate Limiting                      | Controls request frequency.                                                      | Token Bucket, Leaky Bucket                                                       | Prevents abuse, ensures fairness (e.g., APIs).                                            | Use Redis with Lua scripts for Token Bucket or Nginx rate limiting module.                           |
+| Fault Tolerance                    | System resilience to failures.                                                   | Replication, Failover                                                            | High availability (e.g., YouTube metadata).                                               | Replicate with DB tools (e.g., MySQL replication); failover with HAProxy.                            |
+| Circuit Breaker                    | Stops requests to failing services.                                              | Hystrix, Resilience4j                                                            | Prevents cascading failures (e.g., microservices).                                        | Integrate Resilience4j in app code or use Hystrix with Spring Boot.                                  |
+| **Architectural Patterns**         | High-level system structures.                                                    |                                                                                  |                                                                                           |                                                                                                     |
+| Microservices                      | Independent, small services.                                                     | REST/gRPC, Docker, Kubernetes                                                    | Scalability, independent deployment (e.g., Netflix).                                      | Containerize with Docker; orchestrate with Kubernetes; communicate via REST/gRPC.                    |
+| Serverless                         | Event-driven, no server management.                                              | AWS Lambda, Google Cloud Functions                                               | Cost-effective, sporadic workloads, no ops overhead.                                      | Deploy functions with AWS Lambda; trigger via events (e.g., S3, SNS).                                |
+| Event-Driven                       | Systems react to events, not requests.                                           | Kafka, RabbitMQ                                                                  | Real-time, decoupled (e.g., Uber, DoorDash).                                              | Use Kafka for event streams or RabbitMQ for queues; process with consumers.                          |
+| **System Design Building Blocks**  | Core components of distributed systems.                                          |                                                                                  |                                                                                           |                                                                                                     |
+| APIs                               | Interfaces for system communication.                                             | REST, gRPC                                                                       | REST for simplicity, gRPC for performance.                                                | Build REST with Flask/FastAPI; gRPC with Protocol Buffers and gRPC tools.                            |
+| Content Delivery Network (CDN)     | Distributed network for static content.                                          | Cloudflare, Akamai                                                               | Reduces latency, caches globally.                                                         | Configure Cloudflare/Akamai with origin server; cache static assets.                                 |
+| Proxy vs Reverse Proxy             | Proxy forwards client requests; reverse proxy balances server load.              | Nginx, HAProxy                                                                   | Proxy for clients, reverse proxy for servers.                                             | Use Nginx as reverse proxy with upstream servers; proxy with client-side configs.                    |
+| Domain Name System (DNS)           | Translates domains to IPs.                                                       | AWS Route 53, Cloudflare DNS                                                     | High availability, low-latency resolution.                                                | Set up Route 53 with health checks or Cloudflare with geo-routing.                                   |
+| API Gateway                        | Manages API traffic and policies.                                                | Kong, AWS API Gateway                                                            | Handles auth, rate limiting, routing.                                                     | Deploy Kong with plugins or AWS API Gateway with Lambda integration.                                 |
+| **Tradeoffs**                      | Choices with pros/cons to balance.                                               |                                                                                  |                                                                                           | **Tool for Tradeoff Analysis**                                                                      |
+| Vertical vs Horizontal Scaling     | Vertical upgrades one machine; Horizontal adds machines.                         | Vertical for power, Horizontal for distribution                                  | Vertical is simpler, Horizontal scales better.                                            | Use benchmarking tools (e.g., JMeter, Locust) to test capacity limits.                               |
+| Concurrency vs Parallelism         | Concurrency manages tasks; Parallelism runs them simultaneously.                 | Concurrency for multitasking, Parallelism for speed                              | Concurrency for responsiveness, Parallelism for throughput.                               | Profile with `perf` (Linux) or `ThreadPoolExecutor` (Python) to measure efficiency.                  |
+| Long Polling vs WebSockets         | Long Polling uses HTTP waits; WebSockets are persistent.                         | Long Polling for compatibility, WebSockets for real-time                         | Long Polling for legacy, WebSockets for efficiency.                                       | Test latency with tools like Postman (Long Polling) vs WebSocket clients (e.g., `ws`).               |
+| Batch vs Stream Processing         | Batch processes chunks; Stream handles real-time.                                | Batch for datasets, Stream for real-time                                         | Batch for analytics, Stream for immediacy.                                                | Compare with Apache Spark (batch) vs Kafka Streams (stream) for throughput/latency.                  |
+| Stateful vs Stateless Design       | Stateful tracks state; Stateless doesn’t.                                        | Stateful for sessions, Stateless for scalability                                 | Stateful for simplicity, Stateless for scale.                                             | Simulate with Redis (stateful) vs REST APIs (stateless) using load tests (e.g., Locust).             |
+| Strong vs Eventual Consistency     | Strong ensures immediate sync; Eventual allows delays.                           | Strong for transactions, Eventual for scalability                                | Strong for accuracy, Eventual for performance.                                            | Test with Jepsen or Chaos Monkey to verify consistency under failures.                               |
+| **System Design Problems**         | Common design challenges.                                                        |                                                                                  |                                                                                           |                                                                                                     |
+| URL Shortener                      | Shortens long URLs with unique IDs.                                              | Consistent Hashing, Redis, SQL/NoSQL                                             | Redis for lookups, SQL/NoSQL for scale/analytics.                                         | Use Redis for key-value store; shard with consistent hashing; SQL for stats (e.g., PostgreSQL).       |
+| Distributed Cache                  | Cache spread across nodes.                                                       | Redis, Memcached                                                                 | Fast access in distributed systems.                                                       | Deploy Redis Cluster; use client libraries (e.g., `redis-py`) with sharding.                         |
+| Notification Service               | Sends real-time alerts to users.                                                 | Kafka, Redis, WebSockets                                                         | Kafka for streaming, WebSockets for delivery.                                             | Kafka for event queue, Redis for caching, WebSockets for client push (e.g., `Socket.IO`).            |
+| Rate Limiter                       | Limits request rates per user/system.                                            | Token Bucket, Redis                                                              | Redis for counts, Token Bucket for fairness.                                              | Implement Token Bucket with Redis Lua scripts; track rates per IP/key.                               |
+| Distributed Locking                | Ensures exclusive access across nodes.                                           | Zookeeper, Redis                                                                 | Mutual exclusion in distributed systems.                                                  | Use Zookeeper’s lock recipes or Redis `SETNX` with expiration.                                       |
+| Chat System                        | Real-time messaging platform.                                                    | WebSockets, Redis Pub/Sub, Cassandra                                             | WebSockets for chat, Cassandra for storage.                                               | WebSockets for messaging, Redis Pub/Sub for channels, Cassandra for persistence.                     |
+| **Advanced Topics**                | Complex system design concepts.                                                  |                                                                                  |                                                                                           |                                                                                                     |
+| Distributed Tracing                | Tracks requests across services.                                                 | Jaeger, Zipkin                                                                   | Debugs microservices performance.                                                         | Integrate Jaeger/Zipkin with app (e.g., OpenTelemetry); visualize traces.                            |
+| Disaster Recovery                  | Restores system after failures.                                                  | Backups, Replication, Failover                                                   | Ensures data/system availability.                                                         | Use AWS S3 for backups, MySQL replication, HAProxy for failover.                                     |
+| Distributed Web Crawler            | Crawls web in parallel across nodes.                                             | Kafka, Redis, Bloom Filters                                                      | Kafka for tasks, Bloom for deduplication.                                                 | Kafka for job queue, Redis for coordination, Bloom Filters in-memory for URL checks.                 |
+| Distributed Cloud Storage          | Scalable, fault-tolerant file storage.                                           | Consistent Hashing, Replication, Sharding                                        | Scalability, resilience (e.g., S3).                                                       | Use consistent hashing for partitioning; replicate with tools like Hadoop HDFS.                     |
+| Bloom Filters                      | Probabilistic set membership test.                                               | Redis Bloom, custom implementation                                               | Space-efficient deduplication/caching.                                                    | Add Redis Bloom module or implement in code (e.g., Python `pybloomfiltermmap`).                      |
 
 ---
-
-### Final Classification
-| **Group**                     | **Questions**                                                                                  | **Difficulty** |
-|-------------------------------|-----------------------------------------------------------------------------------------------|----------------|
-| **Data Storage/Retrieval**    | URL Shortener, Pastebin, KV Store, Cache, Dropbox, S3                                         | Easy/Medium   |
-| **Real-Time Processing**      | Kafka, Job Scheduler, Notification, Web Crawler, Stock Exchange                               | Medium/Hard   |
-| **Content Delivery**          | CDN, Netflix, Youtube, Spotify, TikTok                                                       | Medium        |
-| **Social Media/Feeds**        | WhatsApp, Instagram, Tinder, Facebook, Twitter, Reddit, Slack, Live Comments                 | Medium/Hard   |
-| **E-Commerce/Transactional**  | Amazon, Shopify, Airbnb, Flight Booking, BookMyShow, Payment, Wallet, UPI                    | Medium        |
-| **Search/Recommendation**     | Google Search, Autocomplete, Leaderboard, Analytics                                          | Medium        |
-| **Location-Based/Mobility**   | Yelp, Uber, Doordash, Google Maps                                                            | Hard          |
-| **Collaborative/Productivity**| Google Docs, Zoom, Code Editor, Code Deployment                                              | Hard          |
-| **Distributed Primitives**    | Counter, Locking, Rate Limiter                                                               | Hard          |
-| **Physical Systems**          | Parking Garage, Vending Machine                                                              | Easy          |
-
----
-
-### How to Cover All Topics
-Pick one from each group to master the core patterns:
-1. **URL Shortener** (Storage): Key-value, sharding.
-2. **Kafka** (Real-Time): Pub-sub, partitioning—your stock broker!
-3. **Netflix** (Content): CDN, streaming—your prior design!
-4. **Twitter** (Social): Feeds, real-time updates.
-5. **Amazon** (E-Commerce): Transactions, inventory.
-6. **Google Search** (Search): Indexing, ranking.
-7. **Uber** (Location): Geo-sharding, matching.
-8. **Google Docs** (Collab): Real-time sync.
-9. **Rate Limiter** (Primitives): Throttling, distributed state.
-10. **Parking Garage** (Physical): Resource allocation.
-
